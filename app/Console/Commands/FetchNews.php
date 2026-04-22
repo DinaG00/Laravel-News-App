@@ -5,50 +5,47 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use App\Models\News;
+use App\Enums\NewsCategory;
 
 class FetchNews extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'app:fetch-news';
+    protected $description = 'Fetch latest news from Finnhub API';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Command description';
-
-    /**
-     * Execute the console command.
-     */
     public function handle()
-{
-    $response = Http::get('https://finnhub.io/api/v1/news', [
-        'category' => 'general',
-        'token' => env('FINNHUB_API_KEY'),
-    ]);
+    {
+        $response = Http::get('https://finnhub.io/api/v1/news', [
+            'category' => NewsCategory::GENERAL->value,
+            'token' => config('services.finnhub.key'),
+        ]);
 
-    $newsList = $response->json();
+        //  API call failed
+        if ($response->failed()) {
+            $this->error('Failed to fetch news from API');
+            return;
+        }
 
-    foreach ($newsList as $item) {
+        $newsList = $response->json();
 
-        News::updateOrCreate(
-            ['url' => $item['url']],
-            [
-                'title' => $item['headline'],
-                'description' => $item['summary'],
-                'image' => $item['image'] ?? null,
-                'source' => $item['source'],
-                'category' => $item['category'],
-                'published_at' => date('Y-m-d H:i:s', $item['datetime']),
-            ]
-        );
+        foreach ($newsList as $item) {
+
+            // Enum handling
+            $category = NewsCategory::tryFrom($item['category']) 
+                ?? NewsCategory::GENERAL;
+
+            News::updateOrCreate(
+                ['url' => $item['url']],
+                [
+                    'title' => $item['headline'],
+                    'description' => $item['summary'],
+                    'image' => $item['image'] ?? null,
+                    'source' => $item['source'],
+                    'category' => $category,
+                    'published_at' => now()->setTimestamp($item['datetime']),
+                ]
+            );
+        }
+
+        $this->info('News imported successfully!');
     }
-
-    $this->info('News imported successfully!');
-}
 }
