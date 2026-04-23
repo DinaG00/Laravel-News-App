@@ -39,4 +39,8 @@ return [
         'key' => env('FINNHUB_API_KEY'),
     ],
 
+    'marketstack' => [
+        'key' => env('MARKETSTACK_API_KEY'),
+    ],
+
 ];

@@ -15,9 +15,10 @@ class NewsController extends Controller
 
     public function apiIndex(Request $request)
     {
-        $news = $this->applyFilters(News::query(), $request)
-            ->orderBy('published_at', 'desc')
-            ->get();
+        $query = $this->applyFilters(News::query(), $request)
+            ->orderBy('published_at', 'desc');
+
+        $news = $query->paginate(4);
 
         $categories = News::query()
             ->select('category')
@@ -26,8 +27,14 @@ class NewsController extends Controller
             ->pluck('category');
 
         return response()->json([
-            'data' => $news,
+            'data' => $news->items(),
             'categories' => $categories,
+            'pagination' => [
+                'current_page' => $news->currentPage(),
+                'last_page' => $news->lastPage(),
+                'per_page' => $news->perPage(),
+                'total' => $news->total(),
+            ],
         ]);
     }
 
