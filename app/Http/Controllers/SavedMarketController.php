@@ -34,12 +34,24 @@ class SavedMarketController extends Controller
             'market_id' => $market->id,
         ]);
 
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($market)
+            ->withProperties(['market_id' => $market->id, 'symbol' => $market->symbol])
+            ->log('Saved market');
+
         return response()->json(['message' => 'Saved']);
     }
 
     public function destroy(Request $request, Market $market): JsonResponse
     {
         $request->user()->savedMarkets()->where('market_id', $market->id)->delete();
+
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($market)
+            ->withProperties(['market_id' => $market->id, 'symbol' => $market->symbol])
+            ->log('Unsaved market');
 
         return response()->json(['message' => 'Unsaved']);
     }

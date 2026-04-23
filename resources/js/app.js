@@ -7,6 +7,7 @@ import SavedNews from './components/SavedNews.vue';
 import Markets from './components/Markets.vue';
 import SavedMarkets from './components/SavedMarkets.vue';
 import NotificationBell from './components/NotificationBell.vue';
+import Exchange from './components/Exchange.vue';
 
 window.Alpine = Alpine;
 Alpine.start();
@@ -25,5 +26,6 @@ mountVueComponent('news-vue-app', NewsApp);
 mountVueComponent('saved-news-app', SavedNews);
 mountVueComponent('markets-vue-app', Markets);
 mountVueComponent('saved-markets-app', SavedMarkets);
+mountVueComponent('exchange-vue-app', Exchange);
 mountVueComponent('notification-bell', NotificationBell);
 

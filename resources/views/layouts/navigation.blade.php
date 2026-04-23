@@ -17,6 +17,9 @@
                 <a class="nav-link {{ request()->routeIs('markets') ? 'active' : '' }}" href="{{ route('markets') }}">
                     {{ __('Markets') }}
                 </a>
+                <a class="nav-link {{ request()->routeIs('exchange') ? 'active' : '' }}" href="{{ route('exchange') }}">
+                    {{ __('Exchange') }}
+                </a>
             </div>
         </div>
 
@@ -76,6 +79,9 @@
         </a>
         <a class="mobile-link {{ request()->routeIs('markets') ? 'active' : '' }}" href="{{ route('markets') }}">
             {{ __('Markets') }}
+        </a>
+        <a class="mobile-link {{ request()->routeIs('exchange') ? 'active' : '' }}" href="{{ route('exchange') }}">
+            {{ __('Exchange') }}
         </a>
         @auth
             <a class="mobile-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">

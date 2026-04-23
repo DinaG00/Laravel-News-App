@@ -26,12 +26,24 @@ class SavedNewsController extends Controller
             'news_id' => $news->id,
         ]);
 
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($news)
+            ->withProperties(['news_id' => $news->id, 'title' => $news->title])
+            ->log('Saved article');
+
         return response()->json(['message' => 'Saved']);
     }
 
     public function destroy(Request $request, News $news): JsonResponse
     {
         $request->user()->savedNews()->where('news_id', $news->id)->delete();
+
+        activity()
+            ->causedBy($request->user())
+            ->performedOn($news)
+            ->withProperties(['news_id' => $news->id, 'title' => $news->title])
+            ->log('Unsaved article');
 
         return response()->json(['message' => 'Unsaved']);
     }

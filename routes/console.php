@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 
 \Illuminate\Support\Facades\Schedule::command('app:check-market-status')->everyFiveMinutes();
 \Illuminate\Support\Facades\Schedule::command('app:check-saved-market-alerts')->everyFifteenMinutes();
+\Illuminate\Support\Facades\Schedule::command('app:fetch-exchange-rates')->dailyAt('07:00');

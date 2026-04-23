@@ -43,4 +43,8 @@ return [
         'key' => env('MARKETSTACK_API_KEY'),
     ],
 
+    'exchangerate' => [
+        'key' => env('EXCHANGERATE_API_KEY'),
+    ],
+
 ];

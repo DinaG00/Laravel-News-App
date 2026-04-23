@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import axios from 'axios';
 import MarketChart from './MarketChart.vue';
+import RecommendationChart from './RecommendationChart.vue';
 
 const props = defineProps({
     auth: Boolean,
@@ -13,8 +14,13 @@ const featuredHistory = ref({ labels: [], close: [], volume: [] });
 const showFeaturedChart = ref(true);
 const selectedHistory = ref({ labels: [], close: [], volume: [] });
 const selectedTicker = ref(null);
+const showFeaturedAnalysis = ref(true);
+const selectedRecommendation = ref({ labels: [], strongBuy: [], buy: [], hold: [], sell: [], strongSell: [] });
+const showSelectedRec = ref(true);
 const loading = ref(false);
 const chartLoading = ref(false);
+const recLoading = ref(false);
+const recommendation = ref({ labels: [], strongBuy: [], buy: [], hold: [], sell: [], strongSell: [] });
 const allMarketStatus = ref(null);
 const search = ref('');
 const savedMarketIds = ref(new Set());
@@ -63,20 +69,63 @@ const loadFeaturedHistory = async (symbol) => {
     }
 };
 
+const loadRecommendation = async (symbol) => {
+    if (!symbol) return;
+    recLoading.value = true;
+    try {
+        const { data } = await axios.get(`/api/markets/${symbol}/recommendation`);
+        if (data.labels && Array.isArray(data.labels)) {
+            recommendation.value = {
+                labels: data.labels,
+                strongBuy: data.strongBuy ?? [],
+                buy: data.buy ?? [],
+                hold: data.hold ?? [],
+                sell: data.sell ?? [],
+                strongSell: data.strongSell ?? [],
+            };
+        }
+    } catch {
+        // keep existing recommendation data on error
+    } finally {
+        recLoading.value = false;
+    }
+};
+
 const selectTicker = async (item) => {
     selectedTicker.value = item;
     chartLoading.value = true;
+    recLoading.value = true;
     try {
-        const { data } = await axios.get(`/api/markets/${item.symbol}/history`, { params: { days: 30 } });
+        const [
+            { data: history },
+            { data: rec },
+        ] = await Promise.all([
+            axios.get(`/api/markets/${item.symbol}/history`, { params: { days: 30 } }),
+            axios.get(`/api/markets/${item.symbol}/recommendation`),
+        ]);
         selectedHistory.value = {
-            labels: data.labels ?? [],
-            close: data.close ?? [],
-            volume: data.volume ?? [],
+            labels: history.labels ?? [],
+            close: history.close ?? [],
+            volume: history.volume ?? [],
         };
+        if (rec.labels && Array.isArray(rec.labels)) {
+            selectedRecommendation.value = {
+                labels: rec.labels,
+                strongBuy: rec.strongBuy ?? [],
+                buy: rec.buy ?? [],
+                hold: rec.hold ?? [],
+                sell: rec.sell ?? [],
+                strongSell: rec.strongSell ?? [],
+            };
+        } else {
+            selectedRecommendation.value = { labels: [], strongBuy: [], buy: [], hold: [], sell: [], strongSell: [] };
+        }
     } catch {
         selectedHistory.value = { labels: [], close: [], volume: [] };
+        selectedRecommendation.value = { labels: [], strongBuy: [], buy: [], hold: [], sell: [], strongSell: [] };
     } finally {
         chartLoading.value = false;
+        recLoading.value = false;
     }
     // scroll to chart
     setTimeout(() => {
@@ -97,7 +146,10 @@ const loadMarkets = async (page = 1) => {
         markets.value = data.data ?? [];
         pagination.value = data.pagination ?? pagination.value;
         if (markets.value.length > 0) {
-            await loadFeaturedHistory(markets.value[0].symbol);
+            await Promise.all([
+                loadFeaturedHistory(markets.value[0].symbol),
+                loadRecommendation(markets.value[0].symbol),
+            ]);
         }
     } finally {
         loading.value = false;
@@ -116,6 +168,13 @@ const loadAllMarketStatus = async () => {
 const applyFilters = async () => {
     pagination.value.current_page = 1;
     await Promise.all([loadMarkets(1), loadAllMarketStatus()]);
+};
+
+const openFeaturedAnalysis = async () => {
+    showFeaturedAnalysis.value = true;
+    if (markets.value.length > 0) {
+        await loadRecommendation(markets.value[0].symbol);
+    }
 };
 
 const goToPage = async (page) => {
@@ -311,37 +370,81 @@ onMounted(() => {
                     </div>
                 </article>
 
-                <!-- Featured Chart -->
-                <div v-if="showFeaturedChart && featuredHistory.labels.length > 0" class="featured-chart">
-                    <MarketChart
-                        :data="featuredHistory"
-                        :title="markets[0].symbol + ' — 30-Day Close'"
-                        :color="changeLabel(markets[0]).class === 'down' ? '#991b1b' : '#166534'"
-                        :fill="true"
-                    />
-                    <button type="button" class="btn-ghost close-chart" @click="showFeaturedChart = false">
-                        Close chart
-                    </button>
+                <!-- Featured Analysis Panel (price + recommendations) -->
+                <div v-if="showFeaturedAnalysis && markets.length > 0" class="analysis-panel">
+                    <div class="analysis-header">
+                        <div class="ticker-main">
+                            <span class="ticker-symbol">{{ markets[0].symbol }}</span>
+                            <span class="ticker-name">Analysis</span>
+                        </div>
+                        <button type="button" class="btn-ghost close-chart" @click="showFeaturedAnalysis = false">
+                            Close analysis
+                        </button>
+                    </div>
+
+                    <!-- Featured price chart -->
+                    <div v-if="featuredHistory.labels.length > 0" class="analysis-section">
+                        <MarketChart
+                            :data="featuredHistory"
+                            :title="markets[0].symbol + ' — 30-Day Close'"
+                            :color="changeLabel(markets[0]).class === 'down' ? '#991b1b' : '#166534'"
+                            :fill="true"
+                        />
+                    </div>
+                    <p v-else class="empty-text">No chart data available.</p>
+
+                    <!-- Featured recommendation chart -->
+                    <div v-if="!recLoading && recommendation.labels.length > 0" class="analysis-section">
+                        <RecommendationChart
+                            :data="recommendation"
+                            :title="markets[0].symbol + ' — Analyst Recommendations'"
+                        />
+                    </div>
+                    <p v-else-if="!recLoading && recommendation.labels.length === 0" class="empty-text">No recommendations available.</p>
                 </div>
 
-                <!-- Selected Ticker Chart -->
-                <div v-if="selectedTicker" id="selected-chart" class="selected-chart">
-                    <div class="ticker-main">
-                        <span class="ticker-symbol">{{ selectedTicker.symbol }}</span>
-                        <span class="ticker-name">{{ selectedTicker.name }}</span>
+                <button
+                    v-else-if="markets.length > 0"
+                    type="button"
+                    class="btn-ghost open-analysis"
+                    @click="openFeaturedAnalysis"
+                >
+                    Open analysis for {{ markets[0].symbol }}
+                </button>
+
+                <!-- Selected Ticker Analysis Panel (price + recommendations) -->
+                <div v-if="selectedTicker" id="selected-chart" class="analysis-panel">
+                    <div class="analysis-header">
+                        <div class="ticker-main">
+                            <span class="ticker-symbol">{{ selectedTicker.symbol }}</span>
+                            <span class="ticker-name">{{ selectedTicker.name }}</span>
+                        </div>
+                        <button type="button" class="btn-ghost close-chart" @click="selectedTicker = null; selectedHistory = {labels:[],close:[],volume:[]}; selectedRecommendation = {labels:[],strongBuy:[],buy:[],hold:[],sell:[],strongSell:[]};">
+                            Close analysis
+                        </button>
                     </div>
-                    <p v-if="chartLoading" class="loading-text">Loading chart...</p>
-                    <MarketChart
-                        v-else-if="selectedHistory.labels.length > 0"
-                        :data="selectedHistory"
-                        :title="selectedTicker.symbol + ' — 30-Day Close'"
-                        :color="changeLabel(selectedTicker).class === 'down' ? '#991b1b' : '#166534'"
-                        :fill="true"
-                    />
-                    <p v-else class="empty-text">No chart data available.</p>
-                    <button type="button" class="btn-ghost close-chart" @click="selectedTicker = null; selectedHistory = {labels:[],close:[],volume:[]};">
-                        Close chart
-                    </button>
+
+                    <p v-if="chartLoading || recLoading" class="loading-text">Loading analysis...</p>
+
+                    <template v-else>
+                        <div v-if="selectedHistory.labels.length > 0" class="analysis-section">
+                            <MarketChart
+                                :data="selectedHistory"
+                                :title="selectedTicker.symbol + ' — 30-Day Close'"
+                                :color="changeLabel(selectedTicker).class === 'down' ? '#991b1b' : '#166534'"
+                                :fill="true"
+                            />
+                        </div>
+                        <p v-else class="empty-text">No chart data available.</p>
+
+                        <div v-if="selectedRecommendation.labels.length > 0" class="analysis-section">
+                            <RecommendationChart
+                                :data="selectedRecommendation"
+                                :title="selectedTicker.symbol + ' — Analyst Recommendations'"
+                            />
+                        </div>
+                        <p v-else-if="!recLoading && selectedRecommendation.labels.length === 0" class="empty-text">No recommendations available.</p>
+                    </template>
                 </div>
 
                 <hr v-if="selectedTicker" class="section-divider" />
@@ -828,11 +931,36 @@ onMounted(() => {
     text-align: center; font-style: italic; color: #8a7e72; padding: 40px 0;
 }
 
-.featured-chart {
+.analysis-panel {
     margin-top: 22px;
     background: #fff;
     border: 1px solid #d6cfc2;
     padding: 20px;
+}
+
+.analysis-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.analysis-header .ticker-main {
+    margin-bottom: 0;
+}
+
+.analysis-section {
+    margin-bottom: 28px;
+}
+
+.analysis-section:last-child {
+    margin-bottom: 0;
+}
+
+.open-analysis {
+    margin-top: 18px;
 }
 
 @media (max-width: 640px) {
