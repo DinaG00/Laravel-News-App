@@ -13,6 +13,13 @@ const categories = ref([]);
 const savedIds = ref(new Set());
 const allMarketStatus = ref(null);
 const markets = ['US', 'L', 'TO', 'AS'];
+
+// Summarize state
+const summarizeLoading = ref(false);
+const summarizeSummary = ref('');
+const summarizeError = ref('');
+const summarizeOpen = ref(false);
+const summarizeTarget = ref(null);
 const filters = ref({
     search: '',
     category: '',
@@ -145,6 +152,33 @@ const clearFilters = async () => {
     await applyFilters();
 };
 
+// Summarize
+const openSummarize = (item) => {
+    summarizeTarget.value = item;
+    summarizeSummary.value = '';
+    summarizeError.value = '';
+    summarizeLoading.value = false;
+    summarizeOpen.value = true;
+    void generateSummary(item.id);
+};
+
+const generateSummary = async (newsId) => {
+    summarizeLoading.value = true;
+    summarizeError.value = '';
+    try {
+        const { data } = await axios.post(`/api/news/${newsId}/summarize`);
+        if (data.error) {
+            summarizeError.value = data.error;
+        } else {
+            summarizeSummary.value = data.summary ?? '';
+        }
+    } catch (e) {
+        summarizeError.value = e.response?.data?.error ?? 'Failed to generate summary.';
+    } finally {
+        summarizeLoading.value = false;
+    }
+};
+
 const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -240,12 +274,25 @@ onMounted(() => {
                         <span class="date">{{ formatDate(news[0].published_at) }}</span>
                     </div>
                     <div class="article-actions">
-                        <a
+                            <a
                             :href="news[0].url"
                             target="_blank"
                             rel="noopener noreferrer"
                             class="read-more"
                         >Read Full Article</a>
+                        <button
+                            v-if="auth"
+                            type="button"
+                            class="summarize-btn"
+                            @click="openSummarize(news[0])"
+                            title="Summarize with AI"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M9 12h6M12 9v6"/>
+                            </svg>
+                            Summarize
+                        </button>
                         <button
                             v-if="auth"
                             type="button"
@@ -303,6 +350,19 @@ onMounted(() => {
                             <button
                                 v-if="auth"
                                 type="button"
+                                class="summarize-btn"
+                                @click="openSummarize(item)"
+                                title="Summarize with AI"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M9 12h6M12 9v6"/>
+                                </svg>
+                                Summa
+                            </button>
+                            <button
+                                v-if="auth"
+                                type="button"
                                 class="save-btn"
                                 :class="{ 'saved': savedIds.has(item.id) }"
                                 @click="toggleSave(item)"
@@ -357,6 +417,25 @@ onMounted(() => {
                 </button>
             </nav>
         </main>
+
+        <!-- Summary Modal -->
+        <div v-if="summarizeOpen" class="summary-overlay" @click.self="summarizeOpen = false">
+            <div class="summary-modal">
+                <button class="summary-close" @click="summarizeOpen = false" aria-label="Close">&times;</button>
+                <div v-if="summarizeTarget" class="summary-header">
+                    <span class="article-category">{{ summarizeTarget.category }}</span>
+                    <h3 class="summary-title">{{ summarizeTarget.title }}</h3>
+                </div>
+                <div class="summary-body">
+                    <p v-if="summarizeLoading" class="loading-text">Generating AI summary...</p>
+                    <p v-else-if="summarizeError" class="error-text">{{ summarizeError }}</p>
+                    <div v-else-if="summarizeSummary" class="summary-content">
+                        <div class="summary-label">AI Summary</div>
+                        <pre class="summary-text">{{ summarizeSummary }}</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
     </section>
 </template>
 
@@ -944,10 +1023,113 @@ onMounted(() => {
     }
 }
 
+/* Summarize button */
+.summarize-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid #d6cfc2;
+    border-radius: 0;
+    background: #fff;
+    color: #6b5e52;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.summarize-btn:hover {
+    background: #f5efe6;
+}
+
+/* Summary Modal */
+.summary-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.summary-modal {
+    background: #fdfbf7;
+    border: 1px solid #d6cfc2;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-close {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    color: #6b5e52;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    font-family: 'Georgia', serif;
+}
+
+.summary-header {
+    padding: 22px 26px 10px;
+    border-bottom: 1px solid #d6cfc2;
+}
+
+.summary-title {
+    font-family: 'Georgia', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 8px 0 0;
+    line-height: 1.3;
+}
+
+.summary-body {
+    padding: 22px 26px 26px;
+}
+
+.summary-label {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #b91c1c;
+    margin-bottom: 10px;
+}
+
+.summary-text {
+    font-family: 'Georgia', serif;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #2d2a26;
+    white-space: pre-wrap;
+    margin: 0;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid #d6cfc2;
+}
+
+.error-text {
+    color: #991b1b;
+    font-style: italic;
+}
+
 @media (max-width: 640px) {
-    .masthead-title {
-        font-size: 2rem;
-    }
     .news-grid {
         grid-template-columns: 1fr;
     }

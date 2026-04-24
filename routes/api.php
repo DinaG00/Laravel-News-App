@@ -18,6 +18,7 @@ Route::get('/markets', [MarketController::class, 'apiIndex']);
 Route::get('/markets/{symbol}/history', [MarketHistoryController::class, 'show']);
 Route::get('/markets/{symbol}/recommendation', [MarketRecommendationController::class, 'show']);
 
+Route::middleware('auth')->post('/news/{news}/summarize', [NewsController::class, 'summarize']);
 Route::get('/exchange-rates', [ExchangeRateController::class, 'pairs']);
 Route::get('/exchange-rates/{base}/{target}/history', [ExchangeRateController::class, 'history']);
 Route::post('/exchange-rates/convert', [ExchangeRateController::class, 'convert']);

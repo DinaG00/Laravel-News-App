@@ -1,0 +1,20 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+prometheus.scrape "targets" {
+  targets = [
+    {"__address__" = "prime-prometheus:9090", "job" = "prometheus"},
+    {"__address__" = "prime-node-exporter:9100", "job" = "node"},
+  ]
+  forward_to = [prometheus.remote_write.local.receiver]
+  scrape_interval = "15s"
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    name = "prime-prometheus"
+    url  = "http://prime-prometheus:9090/api/v1/write"
+  }
+}
