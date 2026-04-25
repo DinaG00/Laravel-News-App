@@ -7,6 +7,9 @@ use App\Http\Controllers\SavedNewsController;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\ExchangeRateController;
+use App\Http\Controllers\MetricsController;
+
+Route::get('/metrics', MetricsController::class)->name('metrics');
 
 Route::get('/', [NewsController::class, 'index'])->name('news');
 Route::get('/markets', [MarketController::class, 'index'])->name('markets');

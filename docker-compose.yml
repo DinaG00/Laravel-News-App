@@ -82,6 +82,22 @@ services:
     networks:
       - monitoring
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: prime-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=http://localhost:9093"
+    volumes:
+      - prime-alertmanager:/alertmanager
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    networks:
+      - monitoring
+
   prometheus:
     image: prom/prometheus:v3.0.1
     container_name: prime-prometheus
@@ -95,8 +111,11 @@ services:
     volumes:
       - prime-prometheus:/prometheus
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/rules:/etc/prometheus/rules
     networks:
       - monitoring
+    depends_on:
+      - alertmanager
 
   alloy:
     image: grafana/alloy:v1.5.1
@@ -143,4 +162,6 @@ volumes:
   prime-loki:
     driver: local
   prime-prometheus:
+    driver: local
+  prime-alertmanager:
     driver: local
